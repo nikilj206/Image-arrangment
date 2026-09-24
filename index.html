@@ -115,6 +115,20 @@
   .who{display:flex;align-items:center;gap:8px;font-size:0.76rem;color:var(--ink-soft);margin-bottom:12px;}
   .who button{font-size:0.72rem;padding:3px 8px;border-radius:5px;border:1px solid var(--rule);background:none;color:var(--ink-soft);cursor:pointer;}
 
+  /* share access panel */
+  .share-panel{max-width:480px;}
+  .share-panel h2{font-family:'Fraunces',serif;font-size:1.3rem;font-weight:600;margin:0 0 6px;}
+  .share-panel p{color:var(--ink-soft);font-size:0.86rem;margin:0 0 16px;line-height:1.5;}
+  .share-form{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;}
+  .share-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .share-row .label-input{flex:1;min-width:190px;}
+  .share-check{display:flex;align-items:center;gap:7px;font-size:0.82rem;color:var(--ink-soft);cursor:pointer;}
+  .access-title{font-size:0.72rem;color:var(--ink-soft);margin:0 0 8px;text-transform:uppercase;letter-spacing:0.04em;}
+  .access-list{display:flex;flex-direction:column;gap:6px;}
+  .access-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 11px;border:1px solid var(--rule);border-radius:7px;font-size:0.82rem;background:var(--paper-raised);}
+  .access-row .role{color:var(--ink-soft);font-size:0.7rem;font-family:'JetBrains Mono',monospace;margin-left:6px;}
+  .access-row button{border:none;background:none;color:var(--red);cursor:pointer;font-size:0.75rem;padding:2px 4px;}
+
   @media (max-width:860px){
     .app{flex-direction:column;}
     .rail{width:100%;max-height:44vh;position:static;border-right:none;border-bottom:1px solid var(--rule);}
@@ -281,9 +295,9 @@
     });
   }
 
-  // Shown right after sign-in (first run), or from "Change folders" in the
-  // sidebar. `change:true` keeps the screen open with a Done button instead
-  // of jumping straight into the app the moment both folders are picked.
+  // Shown right after sign-in, the first time this browser hasn't picked
+  // folders yet. There's no "change folders" button — see the README's
+  // "Changing settings later" section for how to point it elsewhere.
   function renderFolderSetup(opts){
     opts = opts || {};
     var isChange = !!opts.change;
@@ -338,6 +352,202 @@
     if(isChange){
       document.getElementById('doneBtn').addEventListener('click', function(){ start(); });
     }
+  }
+
+  function roleLabelFor(role){
+    return role === 'writer' ? 'Editor' : role === 'commenter' ? 'Commenter' :
+      role === 'reader' ? 'Viewer' : role === 'owner' ? 'Owner' : role;
+  }
+
+  // The fixed list from config.js: people who should always have full
+  // access, independent of who happens to be signed in. Nothing happens
+  // with these automatically — they only get applied when someone clicks
+  // "Grant" or "Grant everyone on this list" in the Share access panel.
+  function getSpecialAccessList(){
+    var raw = (window.SHOOT_ORDER_CONFIG && window.SHOOT_ORDER_CONFIG.specialAccess) || [];
+    return raw.filter(function(e){ return !!e; }).map(function(e){
+      return { email: typeof e === 'string' ? e : e.email };
+    }).filter(function(e){ return e.email; });
+  }
+
+  // Grants full (Editor) access to one person on one folder, without
+  // erroring if they already have some level of access — Drive rejects a
+  // second "create" for an email that's already a permission, so we look
+  // first and switch to an update when needed.
+  async function ensureAccess(fileId, email, existingPerms){
+    var existing = (existingPerms || []).filter(function(p){
+      return p.emailAddress && p.emailAddress.toLowerCase() === email.toLowerCase();
+    })[0];
+    if(existing){
+      if(existing.role === 'writer') return 'already';
+      await updatePermission(fileId, existing.id, 'writer');
+      return 'updated';
+    }
+    await addPermission(fileId, email, 'writer', true);
+    return 'granted';
+  }
+
+  // Reached from "🔑 Share access" in the sidebar. Lets whoever is signed in
+  // give a personal email address (a Gmail, say, not just Workspace
+  // accounts) full access to the shoot folder and Final/, without anyone
+  // touching Drive's own sharing screen. Everyone added this way gets full
+  // (Editor) access — there's no role to choose. Only works if the signed-in
+  // account already has "share" rights on that folder — same rule Drive
+  // itself applies.
+  function renderSharePanel(){
+    var oldBar = document.querySelector('.confirm-bar');
+    if(oldBar) oldBar.remove();
+    navPath = [];
+    renderRail();
+
+    var special = getSpecialAccessList();
+    var main = document.getElementById('main');
+    main.innerHTML =
+      '<div class="share-panel">' +
+        '<h2>Share access</h2>' +
+        '<p>Add a personal email address — a Gmail, say, not just a work account — so that person can open this ' +
+        'tool and see the shoot folders themselves. Google emails them, and they sign in here the normal way. ' +
+        'Everyone added here gets full access to the shoot folder and Final/.</p>' +
+        '<div class="share-form">' +
+          '<div class="share-row">' +
+            '<input class="label-input" id="shareEmail" type="email" placeholder="name@example.com" autocomplete="off">' +
+            '<button class="confirm-btn" id="shareGrantBtn">Grant access</button>' +
+          '</div>' +
+          '<p id="shareMsg" style="font-size:0.8rem;color:var(--ink-soft);min-height:1.2em;margin:0;"></p>' +
+        '</div>' +
+        '<div class="access-title">Special access list (from config.js)</div>' +
+        (special.length ?
+          '<div class="access-list" id="specialList"><span class="loading">Loading…</span></div>' +
+          '<div style="margin-top:10px;"><button class="confirm-btn" id="grantAllBtn" style="background:var(--sage)">Grant everyone on this list</button></div>' +
+          '<p id="specialMsg" style="font-size:0.8rem;color:var(--ink-soft);min-height:1.2em;margin:6px 0 0;"></p>'
+          :
+          '<p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 20px;">None set yet. Open <code>config.js</code>, ' +
+          'add email addresses under <code>specialAccess</code>, and re-upload it — they\'ll show up here to grant with one click.</p>'
+        ) +
+        '<div class="access-title" style="margin-top:22px;">Who currently has direct access to the shoot folder</div>' +
+        '<div class="access-list" id="accessList"><span class="loading">Loading…</span></div>' +
+      '</div>';
+
+    document.getElementById('shareGrantBtn').addEventListener('click', async function(){
+      var email = document.getElementById('shareEmail').value.trim();
+      var msg = document.getElementById('shareMsg');
+      var btn = document.getElementById('shareGrantBtn');
+      if(!email){ msg.textContent = 'Enter an email address first.'; return; }
+      btn.disabled = true; msg.textContent = 'Granting access…';
+      try{
+        await addPermission(ROOT_FOLDER_ID, email, 'writer', true);
+        if(FINAL_FOLDER_ID && FINAL_FOLDER_ID !== ROOT_FOLDER_ID){
+          try{ await addPermission(FINAL_FOLDER_ID, email, 'writer', false); }
+          catch(e){ /* the shoot folder is the one that matters most; keep going */ }
+        }
+        msg.textContent = email + ' now has full access.';
+        document.getElementById('shareEmail').value = '';
+        refreshShareLists();
+      }catch(e){
+        msg.textContent = 'Could not grant access: ' + e.message +
+          '. You need edit/share rights on this folder yourself, and the address must be a real Google account.';
+      }
+      btn.disabled = false;
+    });
+
+    var grantAllBtn = document.getElementById('grantAllBtn');
+    if(grantAllBtn){
+      grantAllBtn.addEventListener('click', async function(){
+        grantAllBtn.disabled = true; grantAllBtn.textContent = 'Granting…';
+        var msg = document.getElementById('specialMsg');
+        var list = getSpecialAccessList();
+        var perms = [];
+        try{ perms = await listPermissions(ROOT_FOLDER_ID); }catch(e){}
+        var done = 0;
+        for(var i = 0; i < list.length; i++){
+          var entry = list[i];
+          try{
+            await ensureAccess(ROOT_FOLDER_ID, entry.email, perms);
+            if(FINAL_FOLDER_ID && FINAL_FOLDER_ID !== ROOT_FOLDER_ID){
+              try{ await ensureAccess(FINAL_FOLDER_ID, entry.email); }catch(e){}
+            }
+            done++;
+          }catch(e){ /* keep going with the rest of the list */ }
+        }
+        grantAllBtn.disabled = false; grantAllBtn.textContent = 'Grant everyone on this list';
+        if(msg) msg.textContent = done + ' of ' + list.length + ' granted.';
+        refreshShareLists();
+      });
+    }
+
+    refreshShareLists();
+  }
+
+  async function refreshShareLists(){
+    var accessListEl = document.getElementById('accessList');
+    var specialListEl = document.getElementById('specialList');
+    var perms = [];
+    try{
+      perms = await listPermissions(ROOT_FOLDER_ID);
+    }catch(e){
+      if(accessListEl){
+        accessListEl.innerHTML = '';
+        accessListEl.appendChild(el('div', 'rail-empty', 'Could not load current access: ' + esc(e.message)));
+      }
+      return;
+    }
+    if(accessListEl) renderAccessRows(accessListEl, perms);
+    if(specialListEl) renderSpecialRows(specialListEl, perms);
+  }
+
+  function renderAccessRows(list, perms){
+    list.innerHTML = '';
+    if(!perms.length){
+      list.appendChild(el('div', 'rail-empty', 'No one is added directly — access may be coming from a shared drive or a parent folder instead.'));
+      return;
+    }
+    perms.forEach(function(p){
+      var row = el('div', 'access-row',
+        '<span>' + esc(p.emailAddress || p.displayName || 'Unknown') + '<span class="role">' + esc(roleLabelFor(p.role)) + '</span></span>');
+      if(p.role !== 'owner'){
+        var rm = document.createElement('button');
+        rm.textContent = 'Remove';
+        rm.addEventListener('click', async function(){
+          rm.disabled = true; rm.textContent = 'Removing…';
+          try{ await removePermission(ROOT_FOLDER_ID, p.id); refreshShareLists(); }
+          catch(e){ rm.textContent = 'Failed'; rm.disabled = false; }
+        });
+        row.appendChild(rm);
+      }
+      list.appendChild(row);
+    });
+  }
+
+  function renderSpecialRows(list, perms){
+    var special = getSpecialAccessList();
+    list.innerHTML = '';
+    special.forEach(function(entry){
+      var existing = perms.filter(function(p){
+        return p.emailAddress && p.emailAddress.toLowerCase() === entry.email.toLowerCase();
+      })[0];
+      var status = !existing ? 'Not added yet' :
+        (existing.role === 'writer' ? 'Already has full access' :
+        'Has ' + roleLabelFor(existing.role) + ' — click to upgrade to full access');
+      var row = el('div', 'access-row',
+        '<span>' + esc(entry.email) + '<span class="role">' + esc(status) + '</span></span>');
+      var btn = document.createElement('button');
+      btn.style.color = 'var(--sage)';
+      btn.textContent = (existing && existing.role === 'writer') ? 'Re-send' : 'Grant';
+      btn.addEventListener('click', async function(){
+        btn.disabled = true; btn.textContent = 'Working…';
+        try{
+          await ensureAccess(ROOT_FOLDER_ID, entry.email, perms);
+          if(FINAL_FOLDER_ID && FINAL_FOLDER_ID !== ROOT_FOLDER_ID){
+            try{ await ensureAccess(FINAL_FOLDER_ID, entry.email); }catch(e){}
+          }
+          refreshShareLists();
+        }catch(e){
+          btn.textContent = 'Failed'; btn.disabled = false;
+        }
+      });
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
   }
 
   function initTokenClient(){
@@ -423,6 +633,34 @@
     });
   }
 
+  // ---------- sharing (grant a personal Google/Gmail address access) ----------
+  async function listPermissions(fileId){
+    var data = await drive('/files/' + fileId + '/permissions?fields=' +
+      encodeURIComponent('permissions(id,type,role,emailAddress,displayName)') + '&pageSize=100');
+    return (data.permissions || []).filter(function(p){ return p.type === 'user' || p.type === 'group'; });
+  }
+
+  async function addPermission(fileId, email, role, notify){
+    return drive('/files/' + fileId + '/permissions?sendNotificationEmail=' + (notify ? 'true' : 'false') +
+      '&fields=id,emailAddress,role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'user', role: role, emailAddress: email })
+    });
+  }
+
+  async function removePermission(fileId, permissionId){
+    return drive('/files/' + fileId + '/permissions/' + permissionId, { method: 'DELETE', raw: true });
+  }
+
+  async function updatePermission(fileId, permissionId, role){
+    return drive('/files/' + fileId + '/permissions/' + permissionId + '?fields=id,role', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: role })
+    });
+  }
+
   async function fetchBlob(url){
     var res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
     if(!res.ok) throw new Error('fetch failed ' + res.status);
@@ -500,7 +738,7 @@
           '<div class="rail-sub">Sequence and tag product photos, then approve a clean copy into Final/.</div>' +
           '<div class="who" id="who"></div>' +
           '<button class="rail-btn" id="reloadBtn">↻ Reload</button>' +
-          '<button class="rail-btn" id="foldersBtn">📁 Change folders</button>' +
+          '<button class="rail-btn" id="shareBtn">🔑 Share access</button>' +
           '<input class="rail-search" id="railSearch" type="text" placeholder="Filter folders…">' +
           '<nav class="rail-list" id="railList"><div class="rail-empty">Loading folders…</div></nav>' +
           '<div class="rail-note">Pick a folder, set the order and tag each frame, then approve — you’ll name the curtain type and colour (e.g. “Zoom Blue”) and it copies into Final/&lt;that name&gt;/. Originals are left exactly as they are.</div>' +
@@ -508,7 +746,7 @@
         '<main class="main" id="main"><div class="empty-state">Pick a folder on the left to get started.</div></main>' +
       '</div>';
     document.getElementById('reloadBtn').addEventListener('click', function(){ location.reload(); });
-    document.getElementById('foldersBtn').addEventListener('click', function(){ renderFolderSetup({ change: true }); });
+    document.getElementById('shareBtn').addEventListener('click', renderSharePanel);
     document.getElementById('railSearch').addEventListener('input', function(e){
       filterText = e.target.value; renderRail();
     });

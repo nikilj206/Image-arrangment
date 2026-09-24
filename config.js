@@ -14,7 +14,7 @@ window.SHOOT_ORDER_CONFIG = {
   // Paste the OAuth client ID from Google Cloud here. It looks like:
   //   1234567890-abc123def456.apps.googleusercontent.com
   // Step 1 of the README explains how to get it.
-  clientId: "92967710711-u9mka0vh9a9pf64bj5fo32rptfq2v0hh.apps.googleusercontent.com",
+  clientId: "PASTE_YOUR_GOOGLE_CLIENT_ID_HERE",
 
   // Optional, but needed for the one-click "Choose folder…" picker to open.
   // Google Cloud → APIs & Services → Credentials → Create credentials →
@@ -32,6 +32,23 @@ window.SHOOT_ORDER_CONFIG = {
 
   // Optional fallback — see rootFolderId above.
   finalFolderId: "1nUIWQIvy7BZMiwVc-4bpjydqhZSaTUwy",
+
+  // A fixed list of people who should always have access — personal Gmail
+  // addresses included, not just your Workspace accounts. Everyone on this
+  // list gets full (Editor) access to both the shoot folder and Final/ —
+  // there's no role to pick. Nothing happens automatically: open the app,
+  // click "🔑 Share access" in the sidebar, and press "Grant everyone on
+  // this list" (or grant one person at a time). You need edit/share rights
+  // on the folder yourself for this to work.
+  //
+  // Example:
+  //   specialAccess: [
+  //     "priya.personal@gmail.com",
+  //     "freelancer@gmail.com"
+  //   ],
+  specialAccess: [
+
+  ],
 
   // The one-click tag buttons under each photo. Edit freely.
   labels: [

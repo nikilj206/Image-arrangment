@@ -128,8 +128,21 @@ at <https://myaccount.google.com/permissions>.
 
 **Access is governed entirely by Drive.** Someone who can only view a folder can
 browse and arrange but the copy step will fail for them; someone with edit access
-can approve. If you want to add or remove a person, do it in Drive's own sharing —
-not here.
+can approve. You can add or remove people from inside the app itself — see
+**"🔑 Share access"** below — or do it in Drive's own sharing screen; either way
+changes the same underlying Drive permissions.
+
+### Giving a personal email (e.g. a Gmail address) access
+
+Click **"🔑 Share access"** in the sidebar. Type their email, pick a role
+(Editor / Commenter / Viewer), and click **Grant access**. This adds them
+directly to the shoot folder (and, if the box is ticked, to `Final/` too) using
+the same Drive sharing Google always uses — nothing new to learn on their end.
+If your consent screen is set to **External** (see Step 1), also add that
+address under **Test users** in Google Cloud, or they'll hit "app not verified"
+when they try to sign in. You need edit/share rights on the folder yourself for
+this to work — if it fails, ask whoever owns the folder to either grant it there
+or run this step themselves.
 
 ---
 
@@ -138,6 +151,9 @@ not here.
 - **One-click "Choose shoot folder…" / "Choose Final folder…"** the first
   time you sign in (or any time from "📁 Change folders" in the sidebar) —
   no folder IDs to copy out of a Drive URL
+- **"🔑 Share access"** in the sidebar — add a personal email (Gmail included)
+  to the shoot folder and Final/ right from the app, with a choice of Editor,
+  Commenter or Viewer, and remove people the same way
 - Sidebar of product folders; click through subfolders
 - Drag or use the arrows to set the order
 - Tag frames (Style Guide, Wash Care, and so on) — or type your own
