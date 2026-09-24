@@ -47,7 +47,7 @@ window.SHOOT_ORDER_CONFIG = {
   //     "freelancer@gmail.com"
   //   ],
   specialAccess: [
-
+    "nikilj2006@gmail.com"
   ],
 
   // The one-click tag buttons under each photo. Edit freely.
